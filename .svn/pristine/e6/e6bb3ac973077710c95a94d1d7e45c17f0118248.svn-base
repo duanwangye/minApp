@@ -1,0 +1,43 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+namespace app\admin\logic;
+
+use tool\Common;
+use app\core\model\Upload as Model;
+class Upload extends Base
+{
+    //上传 图片
+    public function upload(){
+        $file = request()->file('image');
+
+        // 移动到框架应用根目录/public/uploads/ 目录下
+        if($file){
+            $info = $file->validate((['size'=>config('upload.img_size'),'ext'=>config('upload.img_ext')]))->move(ROOT_PATH . 'public' . DS . 'uploads');
+
+            if($info){
+                $save_url = ROOT_PATH . 'public' . DS . 'uploads'.$info->getSaveName();
+                $params['url'] = $save_url;
+
+                $save_result = Model::create($params);
+                if($save_result){
+                    return Common::rm(1, '上传成功', $save_url);
+                }else{
+                    return Common::rm(-1, '上传失败');
+                }
+
+            }else{
+                // 上传失败获取错误信息
+                return Common::rm(-1, '上传失败', $file->getError());
+            }
+        }else{
+            return Common::rm(-1, '图片获取失败');
+        }
+    }
+
+}

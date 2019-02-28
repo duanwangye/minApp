@@ -1,0 +1,193 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+namespace app\admin\logic;
+
+use think\Loader;
+use tool\Common;
+use app\core\model\Product as Model;
+use app\core\model\ProductInformation;
+use app\core\model\ProductReject;
+use app\core\model\Master;
+class Product extends Base
+{
+
+    //获取产品列表
+   public function getlist() {
+       $page = $this->app['page'];//当前页数
+       $size = $this->app['size'];//每页显示数量
+
+       $product_model = new Model();
+       $list = $product_model::with('classinfo,Master')
+               ->limit(($page-1)*$size, $size)
+               ->select();
+       $count = $product_model->count();   //总条数
+
+       if ($list){
+           $list = $list->visible(['productID','productName','costPrice','agentPrice','salePrice','commission','marketPrice','promType','salesSum','status','commentCount','classinfo.className','master.trueName']);
+       }
+
+       return Common::rm(1, '操作成功', [
+           'page'=>$page,
+           'count'=>$count,
+           'list'=>$list
+       ]);
+   }
+
+    //新增/修改产品
+   public function setProduct() {
+       $params['masterID'] = $this->app['masterID'];
+       $params['agentID'] = isset($this->app['agentID'])?$this->app['agentID']:config('laikeagent.default_master_id');
+       $params['classID'] = $this->app['classID'];
+       $params['productName'] = $this->app['productName'];
+       $params['titleImg'] = $this->app['titleImg'];
+       $params['contentImg'] = $this->app['contentImg'];
+       $params['content'] = htmlspecialchars($this->app['content']);
+       $params['costPrice'] = $this->app['costPrice'];
+       $params['agentPrice'] = $this->app['agentPrice'];//代理价
+       $params['salePrice'] = $this->app['salePrice'];
+       $params['commission'] = $this->app['commission'];//佣金（返佣价）
+       $params['marketPrice'] = $this->app['marketPrice'];
+       $params['sort'] = $this->app['sort'];
+       $params['promType'] = $this->app['promType'];
+       $params['status'] = isset($this->app['status']) ? $this->app['status'] : 0;
+       $params['useRules'] = $this->app['useRules'];//使用规则
+       $params['validity'] = $this->app['validity'];//有效期
+       $params['stock'] = $this->app['stock'];//库存
+       //验证价格
+       $price_validate = Loader::validate('PriceValidate');
+
+       $validate_result = $price_validate->check($params);
+
+       $master_info = Master::get([
+           'masterID' => $params['masterID']
+       ]);
+
+       if($master_info['type'] != 2 ){
+           return Common::rm(-1,'供应商ID错误');
+       }
+
+       if(!$validate_result){
+           return Common::rm(-1,$price_validate->getError());
+       }
+
+       if (isset($this->app['productID'])){
+           $params_where['productID'] = $this->app['productID'];
+           $model = new Model();
+           $result = $model->save($params,$params_where);
+       }else{
+           $result = Model::create($params);
+       }
+
+
+       if ($result){
+           return Common::rm(1,'成功');
+       }else{
+           return Common::rm(-1,'失败');
+       }
+   }
+
+    //获取产品详细信息
+    public function getinfo() {
+        $model = new Model();
+        $params_where['productID'] = $this->app['productID'];
+        $info = $model::with('classinfo,Master')
+                ->field('productID,agentID,masterID,classID,content,productName,costPrice,agentPrice,salePrice,commission,marketPrice,promType,salesSum,status,commentCount')
+                ->find($params_where);
+
+        if (!empty($info['content'])) {
+            $info['content'] = htmlspecialchars_decode($info['content']);
+        }
+        $info = $info->visible(['productID','master.trueName','classinfo.className','productName','costPrice','agentPrice','salePrice','commission','marketPrice','promType','salesSum','status','commentCount']);
+        return Common::rm(1,'获取成功',$info);
+    }
+
+    //软删除产品信息
+    public function delete()  {
+        $delete_result = Model::destroy($this->app['productID']);
+        if ($delete_result){
+            return Common::rm(1,'删除成功');
+        }else{
+            return Common::rm(-1,'删除失败');
+        }
+    }
+
+
+    //驳回产品添加的申请
+    public function rejectProduct() {
+        $check_reault = $this->checkStatus();
+
+        if(!$check_reault){
+            return Common::rm(-1,'操作失败');
+        }
+
+        $params['InformationId'] = $this->app['InformationId'];
+        $params['reason'] = $this->app['reason'];
+        $crate_result = ProductReject::create($params);
+
+        if (!$crate_result){
+            return Common::rm(-1,'驳回失败');
+        }
+
+        return $this->changeInformationStatus('product_status_reject','驳回');
+    }
+
+    //通过产品添加的申请
+    public function accessProduct() {
+        $check_reault = $this->checkStatus();
+        if(!$check_reault){
+            return Common::rm(-1,'操作失败');
+        }
+        return $this->changeInformationStatus('product_status_access','审核');
+    }
+
+    public function checkStatus(){
+        $info = ProductInformation::where('InformationId',$this->app['InformationId'])->value('status');
+
+        if($info != config('status.product_status_wait')){
+            return false;
+        }else{
+            return true;
+        }
+    }
+
+    //改变信息状态
+    public function changeInformationStatus($status,$type){
+        $params_where['InformationId'] = $this->app['InformationId'];
+        $params['status'] = config('status.'.$status);
+        $product_infomation_model = new ProductInformation();
+        $save_result = $product_infomation_model->save($params,$params_where);
+
+        if ($save_result){
+            return Common::rm(1,$type.'成功');
+        }else{
+            return Common::rm(-1,$type.'失败');
+        }
+
+    }
+
+    //产品添加的信息列表
+    public function informationList() {
+        $page = $this->app['page'];//当前页数
+        $size = $this->app['size'];//每页显示数量
+        $product_infomation_model = new ProductInformation();
+
+        $list = $product_infomation_model::with('agentinfo')
+            ->limit(($page-1)*$size, $size)
+            ->field('InformationId,agentId,productName,productPrice,supplierName,supplierTel,status')
+            ->select();
+        $count = $product_infomation_model->count();   //总条数
+
+        return Common::rm(1, '操作成功', [
+            'page'=>$page,
+            'count'=>$count,
+            'list'=>$list
+        ]);
+    }
+
+}

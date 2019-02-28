@@ -1,0 +1,113 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/10/10
+ * Company:财联集惠
+ */
+
+namespace app\api\controller;
+use app\core\exception\AppException;
+use app\core\model\Master;
+use think\Config;
+use think\Log;
+use tool\Common;
+
+class Base
+{
+    public $user;
+    public $data = [];
+    public $request;
+    public $app;
+
+
+    public function __construct()
+    {
+
+        $this->request = request();
+        $this->data = json_decode($this->request->getInput(), true);
+        //dump( $this->data );exit();
+        $this->check();
+        $this->app = json_decode($this->data['app'],true) ;
+
+        $this->request->bind('data', $this->data);
+        $this->request->bind('app', $this->app);
+        $user = null;
+        $user = Master::get(['appID' => $this->data['appID']]);
+        if(!$user) {
+            throw new AppException(-1000, '不存在用户，请确认是否传输正确的APPID');
+        }
+        $this->request->bind('user', $user);
+        $this->__initialize();
+    }
+
+    public function check() {
+        Log::info($this->data);
+        if(!isset($this->data['apiV'])) {
+            throw new AppException(-101, 'api版本号不能为空');
+        }
+
+        if(!isset($this->data['osV'])) {
+            throw new AppException(-102, 'osV操作系统版本号不能为空');
+        }
+
+        if(!isset($this->data['osType'])) {
+            throw new AppException(-103, 'osType操作系统类型不能为空');
+        }
+
+        if(!isset($this->data['deviceID'])) {
+            throw new AppException(-104, 'deviceID设备标识不能为空');
+        }
+
+        if(!isset($this->data['appID'])) {
+            throw new AppException(-105, 'appID不能为空');
+        }
+
+        if(!isset($this->data['sign'])) {
+            throw new AppException(-106, 'sign不能为空');
+        }
+
+        if(!isset($this->data['time'])) {
+            throw new AppException(-107, 'time不能为空');
+        }
+
+        if(!isset($this->data['ip'])) {
+            throw new AppException(-108, 'ip不能为空');
+        }
+
+        if(!isset($this->data['app'])) {
+            throw new AppException(-109, 'app应用数据不能为空');
+        }
+
+        $signPre = '';
+       /* if($this->data['app'] === '') {
+            $signPre = $this->data['apiV'].$this->data['osV'].$this->data['osType'].$this->data['deviceID'].$this->data['appID'].$this->data['time'].$this->data['ip'];
+        }
+        else if($this->data['app'] === []) {
+            $signPre = $this->data['apiV'].$this->data['osV'].$this->data['osType'].$this->data['deviceID'].$this->data['appID'].$this->data['time'].$this->data['ip'].'{}';
+        }
+        else {
+            $signPre = $this->data['apiV'].$this->data['osV'].$this->data['osType'].$this->data['deviceID'].$this->data['appID'].$this->data['time'].$this->data['ip'].json_encode($this->data['app'], JSON_UNESCAPED_UNICODE);
+        }*/
+       //验证签名
+        $pub_path = VENDOR_PATH.'/key/pubkey.pem';
+        $public_content = file_get_contents($pub_path);
+        $signature = $this->data['sign'];
+        unset($this->data['sign']);
+        $data =  Common::toString($this->data);
+        $public_key = openssl_get_publickey($public_content);
+        $verify = openssl_verify(json_encode($data), base64_decode($signature), $public_key, OPENSSL_ALGO_SHA1);
+        openssl_free_key($public_key);
+
+        if($verify !=1) {
+            throw new AppException(-108, 'sign签名不正确');
+        }
+    }
+
+
+
+    public function __call($name, $arguments)
+    {
+        // TODO: Implement __call() method.
+    }
+}

@@ -1,0 +1,188 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+namespace tool;
+
+class Common
+{
+    public static function rm($code = 0, $msg = '操作成功', $content = '') {
+
+        $res = [];
+        if(is_array($content) || $content) {
+            $res['code'] = $code;
+            $res['msg'] = $msg;
+            $res['content'] = $content;
+            return $res;
+        }
+        else {
+            $res['code'] = $code;
+            $res['msg'] = $msg;
+            return $res;
+        }
+    }
+
+    public static function rj($code = 0, $msg = '', $content = '', $forward = '') {
+        $result = Common::rm($code, $msg, $content);
+        if($forward) {
+            $result['forward'] = $forward;
+        }
+        return $result;
+    }
+
+    public static function token_create($length = 32)
+    {
+        $pattern = '1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLOMNOPQRSTUVWXYZ';
+        $key = '';
+        for ($i = 0; $i < $length; $i++) {
+            $key .= $pattern{mt_rand(0, 61)};    //生成php随机数
+        }
+        return $key;
+    }
+
+
+    public static function is_weixin(){
+        if ( strpos($_SERVER['HTTP_USER_AGENT'], 'MicroMessenger') !== false ) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 移除对象为null或者数组为[]，不包括移除空字符串和0
+     * @param $array
+     */
+    public static function removeEmtpyObjectOrArray(&$array)
+    {
+        foreach($array as $k=>$v)
+        {
+            if(is_array($v) && !empty($v))
+            {
+                self::removeEmtpyObjectOrArray($array[$k]);
+            }
+            else {
+                if($v === null || $v === []) {
+                    unset($array[$k]);
+                }
+            }
+        }
+    }
+
+
+    public static function price2($price) {
+        return sprintf("%.2f",$price);
+    }
+
+    /**
+     *      把秒数转换为时分秒的格式
+     *      @param Int $times 时间，单位 秒
+     *      @return String
+     */
+    public static function secToTime($times, $type = 0){
+        $result = '--';
+        if ($times>0) {
+            $hour = floor($times/3600);
+            $minute = floor(($times-3600 * $hour)/60);
+            $second = floor((($times-3600 * $hour) - 60 * $minute) % 60);
+            if($type == 1) {
+                $result = $hour.':'.$minute.':'.$second;
+            }
+            else if($type == 2) {
+                $result = $hour.'小时'.$minute.'分';
+            }
+            else if($type == 3) {
+                $result = ($hour * 60  + $minute * 1).'分';
+            }
+            else {
+                $result = [$hour, $minute];
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * 将一个数值切成N份
+     * @param  int $number    切的数值
+     * @param  int $avgNumber 份数
+     * @return array
+     */
+    public static function numberAvg($fromNumber, $toNumber, $avgNumber)
+    {
+        $avg     = floor(($toNumber - $fromNumber) / $avgNumber);
+        //$ceilSum = $avg * $avgNumber;
+        $array   = array();
+        for($i = 0; $i < $avgNumber; $i++) {
+            array_push($array, (int)($fromNumber + $avg * $i));
+            /*if($i < ($fromNumber- $toNumber) - $ceilSum) {
+                array_push($array, $fromNumber + $avg + 1);
+            } else {
+                array_push($array, $fromNumber + $avg);
+            }*/
+        }
+        return $array;
+    }
+
+
+    public static function randString( $length = 22 ) {
+        // 密码字符集，可任意添加你需要的字符
+        $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $password = time();
+        for ( $i = 0; $i < $length; $i++ )
+        {
+            // 这里提供两种字符获取方式
+            // 第一种是使用 substr 截取$chars中的任意一位字符；
+            // 第二种是取字符数组 $chars 的任意元素
+            // $password .= substr($chars, mt_rand(0, strlen($chars) – 1), 1);
+            $password .= $chars[ mt_rand(0, strlen($chars) - 1) ];
+        }
+         return md5($password) ;
+    }
+
+    /*
+     * @name 生成32位系统订单号
+     * @return string
+     */
+    public static function orderNo(){
+        // 密码字符集，可任意添加你需要的字符
+        $chars = '0123456789'.time();
+        $str = '';
+        $length = 16;
+        for ( $i = 0; $i < $length; $i++ )
+        {
+            // 这里提供两种字符获取方式
+            // 第一种是使用 substr 截取$chars中的任意一位字符；
+            // 第二种是取字符数组 $chars 的任意元素
+            // $password .= substr($chars, mt_rand(0, strlen($chars) – 1), 1);
+            $str .= $chars[ mt_rand(0, strlen($chars) - 1) ];
+        }
+        $orderNO = 'DHMAC'.time().$str.'P';
+        return $orderNO;
+    }
+
+    /**
+     * 删除数组的空值
+     * @param unknown $parameters
+     * @return unknown
+     */
+    public static function delete_nullarr($arr){
+        $narr = array();
+        while(list($key, $val) = each($arr)){
+            if (is_array($val)){
+                $val = self::delete_nullarr($val);
+                if (count($val)!=0){
+                    $narr[$key] = $val;
+                }
+            }else{
+                if (trim($val) != ""){
+                    $narr[$key] = $val;
+                }
+            }
+        }
+        unset($arr);
+        return $narr;
+    }
+}

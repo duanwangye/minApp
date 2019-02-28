@@ -1,0 +1,89 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+namespace app\admin\logic;
+
+use tool\Common;
+use app\core\model\ProductClass as Model;
+class Productclass extends Base
+{
+    //获取分类列表
+    public function getlist() {
+        $page = $this->app['page'];//当前页数
+        $size = $this->app['size'];//每页显示数量
+
+        $class_model = new Model();
+        $list = $class_model->limit(($page-1)*$size, $size)
+            ->where('parentID',0)
+            ->select();
+        if ($list) {
+            $list->append(['statusText'])->visible(['classID', 'className',
+                'addTime', 'status']);
+        }
+        $count = $class_model->count();   //总条数
+        return Common::rm(1, '操作成功', [
+            'page'=>$page,
+            'count'=>$count,
+            'list'=>$list
+        ]);
+    }
+
+    /*
+     * @name 修改分类状态
+     * @param status 0禁用 1启用
+     * @param classID 分类ID
+     */
+    public function updateStatus(){
+        $model = Model::where('classID',$this->app['classID'])->update(['status' => $this->app['status']]);
+        if ($model){
+            return Common::rm(1,'操作成功');
+        }
+    }
+
+    /*
+     * @name 得到二级分类
+     * @param classID 分类ID
+     * @return 二级分类列表
+     */
+    public function getSecondList(){
+        $list = Model::where('parentID',$this->app['classID'])->select();
+        if ($list){
+            $list->append(['statusText'])->visible(['classID','className','addTime','status']);
+        }
+
+        return Common::rm(1,'操作成功',$list);
+    }
+
+    /*
+     * @name 新增/修改分类
+     * @param classID  分类ID
+     * @param className  分类名称
+     * @param parentID   父级ID
+     */
+    public function addClass(){
+
+        //不存在新增 存在更新
+        if (!isset($this->app['classID']) && !$this->app['classID']){
+            $model = Model::create([
+                'className' => $this->app['className'],
+                'status' => 1,
+                'parentID' => $this->app['parentID']?$this->app['parentID']:0,
+            ]);
+            if ($model){
+                return Common::rm(1,'操作成功');
+            }
+        }else{
+            $model = Model::where('classID',$this->app['classID'])->update(['className' => $this->app['className']]);
+            if ($model){
+                return Common::rm(1,'操作成功');
+            }
+        }
+
+    }
+
+}

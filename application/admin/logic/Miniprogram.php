@@ -1,0 +1,97 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+namespace app\admin\logic;
+use app\core\model\Program as Model;
+use app\core\model\Master;
+use think\Loader;
+use think\Log;
+use tool\Common;
+class Miniprogram extends Base
+{
+
+    /*
+     * 修改小程序设置
+     * */
+    public function modify() {
+        $params['appName'] = $this->app['appName'];
+        $params['appID'] = $this->app['appID'];
+        $params['appSecret'] = $this->app['appSecret'];
+        $params['domainName'] = $this->app['domainName'];
+
+        $miniprogram_validate = Loader::validate('MiniprogramValidate');
+        $validate_result = $miniprogram_validate->check($params);
+
+        if(!$validate_result){
+            return Common::rm(-1,$miniprogram_validate->getError());
+        }
+
+        $programID = $this->app['programID'];
+        $pragram_info = Model::get($programID);
+
+        if (empty($pragram_info)){
+           //新增记录
+            return $this->add($params);
+        }
+
+        $params_where['programID'] = $programID;
+
+        $params['status'] = isset($this->app['appName']) ? isset($this->app['appName']):1;
+
+        $save_result = (new Model())->save($params,$params_where);
+
+        if ($save_result){
+            return Common::rm(1,'保存成功');
+        }else{
+            return Common::rm(-1,'保存失败');
+        }
+    }
+
+    /*
+     * 新增小程序配置记录
+     * */
+    public function add($create_params) {
+        $masterID = $this->app['masterID'];
+
+        $create_params['status'] = 1;
+        $create_result = Model::create($create_params);
+
+        if (!$create_result){
+            return Common::rm(-1,'保存失败');
+        }
+
+        $programID = $create_result->programID;
+
+        $master_params['programID'] = $programID;
+
+        $params_where['masterID'] = $masterID;
+
+        $save_result = (new Model())->save($master_params,$params_where);
+        if ($save_result){
+            return Common::rm(1,'保存成功');
+        }else{
+            return Common::rm(-1,'保存失败');
+        }
+
+    }
+
+    /*
+     * 获取小程序配置信息
+     * */
+    public function getinfo() {
+        $programID = $this->app['programID'];
+        $pragram_info = Model::get($programID);
+
+        if ($pragram_info){
+            return Common::rm(1,'获取成功',$pragram_info);
+        }else{
+            return Common::rm(-1,'获取失败');
+        }
+
+    }
+}

@@ -1,0 +1,48 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+
+namespace app\core\model;
+
+use think\Model;
+use tool\Common;
+
+class Order extends Model
+{
+    protected $autoWriteTimestamp = true;
+    protected $resultSetType = 'collection';
+    protected $updateTime = 'updataTime';
+    protected $createTime = 'addTime';
+
+    public function productinfo()
+    {
+        return $this->hasOne('Product','productID','productID')->field('productID,productName');
+    }
+
+    public function userinfo()
+    {
+        return $this->hasOne('User','userID','userID')->field('userID,nickname');
+    }
+
+    public function agentinfo()
+    {
+        return $this->hasOne('Master','masterID','agentID');
+    }
+
+    public function setcountAttr($value) {
+        return $value * 100;
+    }
+
+    public function getcountAttr($value) {
+        return Common::price2($value / 100);
+    }
+
+    public function getpaytimeAttr($time) {
+        return (isset($time) && $time != 0) ? date('Y-m-d H:i:s',$time):0;
+    }
+}

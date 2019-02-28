@@ -1,0 +1,100 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/11/05
+ * Company:财联集惠
+ */
+
+namespace app\api\logic;
+use app\core\model\Banner;
+use app\core\model\Product;
+use app\core\model\Master;
+use app\core\model\ProductClass;
+
+
+use think\Db;
+use tool\Common;
+
+class Index extends Base
+{
+    /*
+     * @name 小程序首页
+     */
+    public function index(){
+        //首页banner图
+        $banner = Banner::where('status',1)->order('sort asc')->select();
+        $adver = [];
+        $bannerList = [];
+        foreach ($banner as $k => $val){
+            if ($val['type'] == 2){   //广告
+                $adver[$k]['title'] = $val['title'];
+                $adver[$k]['thumb'] = $val['thumb'];
+                $adver[$k]['link'] = $val['link'];
+            }
+            if ($val['type'] == 1){ //banner
+                $bannerList[$k]['title'] = $val['title'];
+                $bannerList[$k]['thumb'] = $val['thumb'];
+                $bannerList[$k]['link'] = $val['link'];
+            }
+        }
+        $adver = array_merge($adver);
+        $bannerList = array_merge($bannerList);
+        $this->app['pageIndex'] = 1;
+        $this->app['pageItemCount'] = 5;
+
+
+        //得到产品列表(根据坐标)
+        $this->app['latitude'] = '30.326390';    //纬度
+        $this->app['longitude'] = '120.183560';   //经度
+        //计算周围距离
+        $distance = Common::returnSquarePoint($this->app['longitude'],$this->app['latitude']);
+        $map['latitude'] = ['<=',$distance['left-top']['lat']];
+        $map['latitude'] = ['>=',$distance['left-bottom']['lat']];
+        $map['longitude'] = ['<=',$distance['right-top']['lng']];
+        $map['longitude'] = ['>=',$distance['left-bottom']['lng']];
+        $data = Master::with(['productList' => function($query){
+            $query->where('status',1)->order('sort asc');
+        }])->where($map)->order('addTime')->limit(($this->app['pageIndex'] -1)*$this->app['pageItemCount'],$this->app['pageItemCount'])->select()->toArray();
+        $productList = [];
+        if ($data){
+            foreach ($data as $k => $val){
+                $data = [];
+                foreach ($val['product_list'] as $key => $value){
+                    if (count($productList) >= 10){
+                        break;
+                    }
+                    $data['productID'] = $value['productID'];
+                    $data['productName'] = $value['productName'];
+                    $data['titleImg'] = $value['titleImg'];
+                    $data['salePrice'] = $value['salePrice'];
+                    $data['marketPrice'] = $value['marketPrice'];
+                    $data['promType'] = $value['promType'];
+                    $productList[] = $data;
+                }
+
+            }
+        }
+        return Common::rm(1,'操作成功',[
+            'bannerList' => $bannerList,
+            'productList' => $productList,
+        ]);
+
+    }
+
+    /*
+     * @name 得到更多分类
+     * @return 分类列表
+     */
+    public function getClassList(){
+        $list = ProductClass::where('parentID',0)->select();
+        if ($list){
+            $list->visible(['classID','className']);
+        }
+
+        return Common::rm(1,'操作成功',$list);
+    }
+
+
+
+}

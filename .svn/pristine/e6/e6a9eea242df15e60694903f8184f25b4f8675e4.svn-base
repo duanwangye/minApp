@@ -1,0 +1,45 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+namespace app\supplier\logic;
+
+use app\core\model\Order as Model;
+use app\core\model\Product;
+use tool\Common;
+
+class Order extends Base
+{
+
+    public function getlist()
+    {
+        $page = $this->app['page'];//当前页数
+        $size = $this->app['size'];//每页显示数量
+
+        $params_where['masterID'] = $this->master['masterID'];//供应商ID
+
+        $productid_arr = Product::where('masterID',$params_where['masterID'])
+                         ->column('productID');
+        $map['id'] = array('in',$productid_arr);
+
+        $order_model = new Model();
+
+        $list = $order_model::with('productinfo')
+            ->limit(($page-1)*$size, $size)
+//            ->field('InformationId,agentId,productName,productPrice,supplierName,supplierTel,status')
+            ->where($map)
+            ->select();
+        $count = $order_model->where($map)->count();   //总条数
+
+        return Common::rm(1, '操作成功', [
+            'page'=>$page,
+            'count'=>$count,
+            'list'=>$list
+        ]);
+
+    }
+}

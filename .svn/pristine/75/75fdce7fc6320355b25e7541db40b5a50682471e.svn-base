@@ -1,0 +1,46 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/12/03
+ * Company:财联集惠
+ */
+
+namespace app\api\controller;
+
+use app\core\model\orderOther as OrderModel;
+use app\api\controller\AES;
+use think\Log;
+use think\Controller;
+use think\Request;
+use tool\Common;
+
+class H5 extends Controller
+{
+    public function notify(){
+        $res = file_get_contents('php://input');
+        Log::write($res,'notify');
+       $arr =  Common::xmltoarray($res);
+
+
+        if ($arr['result_code'] == 'SUCCESS'){
+
+
+               $order =  OrderModel::where('tradeNo',$arr['out_trade_no'])->find();
+               $order->out_trade_no = $arr['transaction_id'];
+               $order->paytime =time();
+               $order->pay_type = $arr['trade_type'];
+               $order->status = 1;   //更改支付状态
+               $order->save();
+               if ($order){
+                   echo '<xml>
+  <return_code><![CDATA[SUCCESS]]></return_code>
+  <return_msg><![CDATA[OK]]></return_msg>
+</xml>';
+               }
+
+        }
+
+    }
+    
+}

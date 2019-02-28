@@ -1,0 +1,202 @@
+<?php
+
+namespace app\supplier\logic;
+
+use app\core\model\Master;
+use app\core\model\OrderShare;
+use app\core\model\Order;
+use app\core\model\Product;
+use app\core\model\UserProgram;
+use app\core\model\Verification as Model;
+
+use think\Db;
+use think\Exception;
+use tool\Common;
+
+class Verification extends Base
+{
+
+    //核销
+    public function verification() {
+        $verificationCode = $this->app['verificationCode'];
+        $verification_model = new Model();
+        $verification_info = $verification_model
+            ->where(['verificationCode'=>$verificationCode])
+            ->find();
+
+        if(!$verification_info){
+            return Common::rm(-1, '核销码错误！');
+        }
+
+        if($verification_info['status'] !== config('status.verification_status_default')){
+            return Common::rm(-1, '核销码失效');
+        }
+
+        $orderID = $verification_info['orderID'];
+
+        $order_share_model = new OrderShare();
+        $order_share_info = $order_share_model
+            ->where(['orderID' => $orderID])
+            ->find();
+
+
+        // todo:分润金额需要存储，不能存百分比，佣金会改变
+        $shareOne = $order_share_info['shareOne'];//一级分润百分比
+        $shareTwo = $order_share_info['shareTwo'];//二级分润百分比
+
+        $share_money[1] = 100;//一级分润金额（分）
+        $share_money[2] = 200;//二级分润金额（分）
+
+        $result = $this->findParentID($orderID);
+
+        try {
+
+            Db::startTrans();
+
+            $verification_params['status'] = config('status.verification_status_used');
+
+            $verification_params_where['verificationID'] = $verification_info['verificationID'];
+            //将核销状态改变为已使用
+            $verification_save_result = $verification_model->save($verification_params,$verification_params_where);
+            if (!$verification_save_result) {
+                throw new Exception('核销失败');
+            }
+
+            //冻结资金解冻，计入可使用金额
+
+            //用户分润
+            if(!empty($result['get_share_uid'])) {
+
+                foreach ($result['get_share_uid'] as $key=>$share_id) {
+
+                    $user_program_model = new UserProgram();
+                    $user_program_info = $user_program_model
+                        ->where(['userID' => $share_id])
+                        ->find();
+
+                    if($user_program_info['noMoney'] < $share_money[$key]) {
+                        throw new Exception('用户冻结金额小于提现金额');
+                    }
+
+                    $user_params['noMoney'] = $user_program_info['noMoney'] - $share_money[$key];
+                    $user_params['yesMoney'] = $user_program_info['yesMoney'] + $share_money[$key];
+                    $user_params_where['userID'] = $share_id;
+
+                    $user_save_result = $user_program_model->save($user_params,$user_params_where);
+
+                    if(!$user_save_result) {
+                        throw new Exception($user_program_model->getError());
+                    }
+
+                }
+
+            }
+
+            //分销商分润
+            if(!empty($result['agent'])){
+
+                $agent_program_model = new Master();
+                $share_id = $result['agent_id'];
+                $agent_program_info = $agent_program_model
+                    ->where(['masterID' => $share_id])
+                    ->find();
+
+                if(!$agent_program_info){
+                    throw new Exception('供应商信息出错');
+                }
+
+                $agent_params['noMoney'] = $agent_program_info['noMoney'];
+                $agent_params['yesMoney'] = $agent_program_info['yesMoney'];
+                for ($i = 1;$i <= $result['agent'];$i++){
+
+                    if($agent_program_info['noMoney'] < $share_money[$i]){
+                        throw new Exception('供应商冻结金额小于提现金额');
+                    }
+
+                    $agent_params['noMoney'] = $agent_params['noMoney'] - $share_money[$i];
+                    $agent_params['yesMoney'] = $agent_params['yesMoney'] + $share_money[$i];
+
+                }
+
+                $agent_params_where['masterID'] = $share_id;
+
+                $agent_save_result = $agent_program_model->save($agent_params,$agent_params_where);
+
+                if(!$agent_save_result) {
+                    throw new Exception($user_program_model->getError());
+                }
+
+            }
+
+            Db::commit();
+            return Common::rm(1, '核销成功');
+
+        } catch (Exception $e) {
+            //如获取到异常信息，对所有表的删、改、写操作，都会回滚至操作前的状态：
+            Db::rollback();
+            return Common::rm(-1, $e->getMessage());
+
+        }
+
+    }
+
+    //通过付款用户ID查找应拿佣金的用户
+    public function findParentID($orderID=1) {
+        $order_info = Order::get([
+            'orderID' => $orderID
+        ]);
+
+        $pay_uid = $order_info['userID'];//付款用户ID
+
+        for ($i = config('system.share_class');$i > 0;$i--) {
+            $user_program_info = UserProgram::get([
+                'userID' => $pay_uid
+            ]);
+
+            if ($user_program_info['parentID'] != 0){
+
+                $params['get_share_uid'][$i] = $user_program_info['parentID'];//付款用户父级ID
+
+            }else{
+                $params['agent'] = $i;
+                $params['agent_id'] = $user_program_info['agentId'];
+                break;
+            }
+
+            $pay_uid = $user_program_info['parentID'];
+        }
+
+        return $params;
+
+    }
+
+    // 获取验证信息
+    public function verificationInfo() {
+        $masterID = $this->master['masterID'];
+
+        $productid_arr = Product::where('masterID',$masterID)->column('productID');
+
+        $order_model = new Order();
+        $order_info = $order_model->where('productID','in',$productid_arr)->field('orderID')->select()->toArray();
+        $order_id_arr = array_column($order_info,'orderID');
+
+        $verification_model = new Model();
+        $today = strtotime(date('Y-m-d'),time()); //今天
+
+        $params['addTime'] = $today;
+        $params_today_where['addTime'] = array('egt', $today);
+        $params_today_where['status'] = config('status.verification_status_used');
+        $params_today_where['orderID'] = array('in',$order_id_arr);
+
+        $today_used_count = $verification_model->where($params_today_where)->count();   //今日验证数
+
+        $params_where['status'] = config('status.verification_status_default');
+        $params_where['orderID'] = array('in',$order_id_arr);
+        $today_default_count = $verification_model->where($params_where)->count();   //未验证数
+
+        return Common::rm(1, '获取成功',[
+            'today_used_count' => $today_used_count,//今日验证数
+            'today_default_count' => $today_default_count//剩余未验证数
+        ]);
+    }
+}

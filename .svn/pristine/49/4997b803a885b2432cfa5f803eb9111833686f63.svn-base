@@ -1,0 +1,34 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+
+namespace app\core\model;
+
+use think\Model;
+
+class Order extends Model
+{
+    protected $autoWriteTimestamp = true;
+    protected $resultSetType = 'collection';
+    protected $updateTime = 'updataTime';
+    protected $createTime = 'addTime';
+
+    public function productinfo()
+    {
+        return $this->hasOne('Product','productID','productID')->field('productID,productName');
+    }
+
+    public function userinfo()
+    {
+        return $this->hasOne('User','userID','userID')->field('userID,nickname');
+    }
+    public function verificationinfo()
+    {
+        return $this->hasOne('User','userID','userID')->field('userID,nickname');
+    }
+}

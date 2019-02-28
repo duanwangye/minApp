@@ -1,0 +1,128 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+namespace app\admin\logic;
+
+use tool\Common;
+use app\core\model\ProductClass as Model;
+use app\core\model\Product;
+class Productclass extends Base
+{
+    //获取分类列表
+    public function getlist() {
+        $page = $this->app['page'];//当前页数
+        $size = $this->app['size'];//每页显示数量
+
+        $class_model = new Model();
+        $list = $class_model
+                    ->limit(($page-1)*$size, $size)
+                    ->where(['parentID' => 0])
+                    ->field('classID,className')
+                    ->select()
+                    ->toArray();
+
+
+        foreach ($list as &$item){
+            $item['childClass'] = $class_model
+                                    ->where(['parentID' => $item['classID']])
+                                    ->field('classID,className')
+                                    ->select();
+        }
+
+        $count = $class_model->count();   //总条数
+        return Common::rm(1, '操作成功', [
+            'page'=>$page,
+            'count'=>$count,
+            'list'=>$list
+        ]);
+    }
+
+    //新增分类
+    public function add() {
+        $create_params['className'] = $this->app['className'];
+        $create_params['parentID'] = $this->app['parentID'];
+        $create_params['status'] = isset($this->app['status']) ? $this->app['status'] : config('status.class_status_hide');
+
+        if($create_params['parentID'] != 0) {
+            $class_parent_info = Model::get($create_params['parentID']);
+            if(!$class_parent_info){
+                return Common::rm(-1,'父级分类不存在');
+            }
+            if($class_parent_info['parentID'] != 0){
+                return Common::rm(-1,'分类最高两级');
+            }
+        }
+
+        $create_result = Model::create($create_params);
+
+        if ($create_result){
+            return Common::rm(1,'新增成功');
+        }else{
+            return Common::rm(-1,'新增失败');
+        }
+    }
+
+    //修改分类
+    public function modify(){
+        $modify_params['className'] = $this->app['className'];
+        $modify_params['parentID'] = $this->app['parentID'];
+        $modify_params['status'] = $this->app['status'];
+
+        $params_where['classID'] = $this->app['classID'];
+
+        if($modify_params['parentID'] != 0) {
+            $class_parent_info = Model::get($modify_params['parentID']);
+            if(!$class_parent_info){
+                return Common::rm(-1,'父级分类不存在');
+            }
+            if($class_parent_info['parentID'] != 0){
+                return Common::rm(-1,'分类最高两级');
+            }
+        }
+
+        $model = new Model();
+        $save_result = $model->save($modify_params,$params_where);
+
+        if ($save_result){
+            return Common::rm(1,'更新成功');
+        }else{
+            return Common::rm(-1,'更新失败');
+        }
+    }
+
+    /*
+      * 软删除信息
+      * */
+    public function delete() {
+        $classID = $this->app['classID'];
+        $delete_result = Model::destroy($classID);
+
+        $product_model = new Product();
+        $product_info = $product_model->where(['classID' => $classID])->select()->toArray();
+
+        if (!empty($product_info)) {
+            return Common::rm(-1,'该分类下有商品，请修改产品分类后重试');
+        }
+
+        if ($delete_result){
+            return Common::rm(1,'删除成功');
+        }else{
+            return Common::rm(-1,'删除失败');
+        }
+    }
+
+    public function getinfo(){
+        $info_result = (new Model)
+                        ->where(['classID'=>$this->app['classID']])
+                        ->field('classID,className,parentID')
+                        ->find();
+        return Common::rm(1, '操作成功', [
+            'info'=>$info_result
+        ]);
+    }
+}

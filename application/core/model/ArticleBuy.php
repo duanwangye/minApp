@@ -1,0 +1,22 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 19/01/08
+ * Company:财联集惠
+ */
+namespace app\core\model;
+
+use think\Model;
+
+class ArticleBuy extends Model
+{
+    protected $autoWriteTimestamp = true;
+    protected $resultSetType = 'collection';
+    protected $updateTime = 'updataTime';
+    protected $createTime = 'addTime';
+
+    public function articleBuy(){
+        return $this->hasOne('Article','articleID');
+    }
+}

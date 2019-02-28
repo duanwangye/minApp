@@ -1,0 +1,94 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+namespace app\admin\logic;
+
+use tool\Common;
+use app\core\model\Banner as Model;
+class Banner extends Base
+{
+    //获取列表
+    public function getlist() {
+        $page = $this->app['page'];//当前页数
+        $size = $this->app['size'];//每页显示数量
+
+        $banner_model = new Model();
+        $list = $banner_model
+            ->limit(($page-1)*$size, $size)
+            ->field('bannerID,title,thumb,sort,productID,link,status')
+            ->select();
+        $count = $banner_model->count();   //总条数
+
+        return Common::rm(1, '操作成功', [
+            'page'=>$page,
+            'count'=>$count,
+            'list'=>$list
+        ]);
+    }
+
+    //获取banner信息
+    public function getinfo() {
+        $model = new Model();
+        $params_where['bannerID'] = $this->app['bannerID'];
+        $info = $model
+            ->field('bannerID,title,thumb,sort,productID,link,status')
+            ->find($params_where);
+        return Common::rm(1,'获取成功',$info);
+    }
+
+    //新增banner图片
+    public function add() {
+        $params['thumb'] = $this->app['thumb'];
+        $params['sort'] = $this->app['sort'];
+        $params['productID'] = $this->app['productID'];
+
+        $count = (new Model())->count();
+
+        if($count >= config('count.banner_count_max')){
+            return Common::rm(1, 'banner个数不能大于'.config('count.banner_count_max'));
+        }
+
+        $crate_result = Model::create($params);
+
+        if ($crate_result){
+            return Common::rm(1, '新增成功');
+        }else{
+            return Common::rm(-1,'新增失败');
+        }
+    }
+
+    public function modify(){
+        $params['thumb'] = $this->app['thumb'];
+        $params['sort'] = $this->app['sort'];
+        $params['productID'] = $this->app['productID'];
+
+        $params_where['bannerID'] = $this->app['bannerID'];
+
+        $model = new Model();
+        $save_result = $model->save($params,$params_where);
+
+        if ($save_result){
+            return Common::rm(1,'更新成功');
+        }else{
+            return Common::rm(-1,'更新失败');
+        }
+    }
+
+    //软删除
+    public function delete() {
+        $delete_result = Model::destroy($this->app['bannerID']);
+        if ($delete_result){
+            return Common::rm(1,'删除成功');
+        }else{
+            return Common::rm(-1,'删除失败');
+        }
+    }
+
+
+
+}

@@ -1,0 +1,41 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+
+namespace app\core\model;
+
+use think\Model;
+use tool\Common;
+use traits\model\SoftDelete;
+
+class Master extends Model
+{
+    protected $resultSetType = 'collection';
+    protected $updateTime = 'updateTime';
+    protected $createTime = 'addTime';
+    protected $autoWriteTimestamp = true;
+    use SoftDelete;
+    protected $deleteTime = 'delete_time';
+
+    public function productList(){
+        return $this->hasMany('Product','masterID','masterID');
+    }
+
+    public function createPassword($password) {
+        return md5(config("app.admin_password_salt").$password);
+    }
+
+    public function createToken() {
+        return md5(THINK_START_TIME.Common::token_create(10));
+    }
+
+    public function createTokenOverTime() {
+        return (int)THINK_START_TIME + 7 * 86400;
+    }
+
+}

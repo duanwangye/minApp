@@ -1,0 +1,102 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+namespace app\admin\logic;
+
+use app\core\model\Article as Model;
+use tool\Common;
+class Article extends Base
+{
+
+   /*
+    * @name 添加文章/编辑文章
+    * @param type 0 普通文章 1收费文章
+    */
+   public function editorArticle(){
+       if (isset($this->app['articleID']) && $this->app['articleID']){
+         $model = Model::where('articleID',$this->app['articleID'])->find();
+         $model->save([
+             'type' => $this->app['type'] ? $this->app['type']:$model['type'],
+             'title' => $this->app['title'] ? $this->app['title']:$model['title'],
+             'media' => $this->app['media'] ? json_encode($this->app['media']):$model['media'],
+             'author' => $this->app['author'] ? $this->app['author']:$model['author'],
+             'sort' => $this->app['sort'] ? $this->app['sort']:$model['sort'],
+             'price' => $this->app['price'] ? $this->app['price']:$model['price'],
+             'content' => $this->app['content'] ? json_encode($this->app['content']):$model['content'],
+         ],['articleID' => $this->app['articleID']]);
+         return Common::rm(1,'操作成功');
+       }else{
+           Model::create([
+               'type' => $this->app['type'],
+               'title' => $this->app['title'],
+               'media' => json_encode($this->app['media']),
+               'author' => $this->app['author'],
+               'sort' => $this->app['sort'],
+               'price' => $this->app['price']?$this->app['price']:0,
+               'content' => json_encode($this->app['content']),
+           ]);
+           return Common::rm(1,'操作成功');
+       }
+   }
+
+   /*
+    * @name 得到文章列表
+    * @return
+    */
+   public function getArticleList(){
+       $model  = Model::order('sort asc,addTime')->page($this->app['page']=1,$this->app['size']=10)->select();
+       $count = Model::count();
+       if (!$model->isEmpty()){
+           $model->append(['typeText'])->hidden(['content','updataTime','sort']);
+           foreach ($model as $k => $val){
+               if ($val['type'] != 1){
+                   unset($model[$k]['price']);
+               }
+               $model[$k]['media'] = json_decode($val['media'],true);
+           }
+
+
+       }
+       return Common::rm(1,'操作成功',['count' => $count,'list' => $model]);
+   }
+
+   /*
+    * @name 得到文章详情
+    * @name articleID
+    */
+   public function getArticleDetail(){
+
+       //$this->app['articleID'] = 1;
+       $model = Model::get($this->app['articleID']);
+
+       if ($model){
+           $model->hidden(['browse','addTime','updataTime']);
+           $model['content'] = json_decode($model['content'],true);
+           $model['media'] = json_decode($model['media'],true);
+       }
+       return Common::rm(1,'操作成功',$model);
+   }
+
+   /*
+    * @name 删除文章 付费文章删除判断是否用用户
+    * @param articleID
+    */
+   public function delArticle(){
+      // $this->app['articleIDS'] = [1];
+      $model =  Model::where('articleID','in',$this->app['articleIDS'])->select();
+      foreach ($model as $k => $val){
+          if ($val['type'] == 1){
+              return Common::rm(-2,'付费文章暂时不支持删除');
+          }
+      }
+
+       Model::destroy($this->app['articleIDS']);
+
+       return Common::rm(1,'操作成功');
+   }
+}

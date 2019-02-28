@@ -1,0 +1,105 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/11/08
+ * Company:财联集惠
+ */
+
+namespace app\api\logic;
+use app\core\model\User as Model;
+use app\core\model\UserProgram;
+use tool\Common;
+
+class User extends Base
+{
+    /*
+     * @name 保存用户信息（小程序授权获取用户信息） 实名认证
+     *  * @param  mobile  电话号码
+     * @param trueName  真实姓名
+     * @param card     身份证号
+     * @param address  地址
+     */
+    public function setUserInfo(){
+        $this->app = [
+            'openID' => '9556277584',
+            'photo' => 'https://www.baidu.com/img/baidu_jgylogo3.gif',
+            'nickname' => 'baidutb',
+            'sex' => '1',
+            'mobile' => '15968808705',
+            'trueName' => 'duanhui',
+            'card' => '420528199302281413',
+            'address' => '杭州跨贸小镇506',
+        ];
+        $user = Model::where('openID',$this->app['openID'])->find();
+        if (!$user){
+            $model = Model::create([
+                'openID' => $this->app['openID'],
+                'photo' => $this->app['photo'],
+                'nickname' => $this->app['nickname'],
+                'sex' => $this->app['sex'],
+            ]);
+            $parentID = 0;
+            if (isset($this->app['parentID']) && $this->app['parentID']){
+                $parentID = $this->app['parentID'];
+            }
+            UserProgram::create([
+                'userID' => $model->userID,
+                'parentID' => $parentID,
+                'VIP' => 0,
+            ]);
+        }else{
+            $user->save([
+                'mobile' => $this->app['mobile'],
+                'trueName' => $this->app['trueName'],
+                'card' => $this->app['card'],
+                'address' => $this->app['address'],
+            ],['openID' => $this->app['openID']]);
+
+                UserProgram::where('userID', $user['userID'])->update(['VIP' => 1]);
+        }
+
+        return Common::rm(1,'操作成功');
+
+    }
+
+    /*
+     * @name 得到用户详细信息
+     * @param OpenID  用户唯一标识
+     */
+    public function getUserInfo(){
+        $this->app = [
+            'openID' => '52545646adfa'
+            ];
+        $user = Model::where('openID',$this->app['openID'])->find();
+        if ($user){
+            $user->visible(['mobile','trueName','card','address','VIP','sex']);
+        }
+
+        return Common::rm(1,'操作成功',$user);
+    }
+
+    /*
+     * @name 得到用户余额
+     */
+    public function getUserMoney(){
+        $this->app = [
+            'openID' => '52545646adfa'
+        ];
+        $user = Model::with('userProgram')->where('openID',$this->app['openID'])->find();
+        $data = [];
+        if ($user){
+            $data = [
+                'userID' => $user['userID'],
+                'earnings' => $user['userProgram']['earnings'],
+                'money' => $user['userProgram']['money'],
+                'noMoney' => $user['userProgram']['noMoney'],
+                'yesMoney' => $user['userProgram']['yesMoney'],
+            ];
+        }
+
+        return Common::rm(1,'操作成功',$data);
+
+    }
+
+}

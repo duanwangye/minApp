@@ -1,0 +1,79 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+namespace app\agent\logic;
+
+use think\Db;
+use think\Exception;
+use tool\Common;
+
+use app\core\model\Master;
+use app\core\model\Deposit as Model;
+class Deposit extends Base
+{
+    public function withdrawDeposit() {
+        $agent_id = $this->master['masterID'];
+        $deposit_money = ($this->app['depositMoney']) * 100;// 分
+
+        if ($deposit_money < 10000) {
+            return Common::rm(-1, '金额必须大于100');
+        }
+
+        if (substr($deposit_money,-4) != 0){
+            return Common::rm(-1, '金额必须整百');
+        }
+
+        $agent_model = new Master;
+        $agent_info = $agent_model::get( ['masterID' => $agent_id] );
+
+        if($agent_info['yesMoney'] < 2000000) {
+            return Common::rm(-1, '取现不能大于2万');
+        }
+
+        if($agent_info['yesMoney'] < $deposit_money) {
+            return Common::rm(-1, '可用余额不足');
+        }
+
+        $yesMoney = $agent_info['yesMoney'] - $deposit_money;
+
+        $agent_params['yesMoney'] = $yesMoney;
+        $agent_params_where['masterID'] = $agent_id;
+
+        try {
+
+            Db::startTrans();
+
+            $agent_save_result = $agent_model->save($agent_params,$agent_params_where);
+
+            if(!$agent_save_result){
+                throw new Exception('提现失败');
+            }
+
+            $deposit_creat_result = Model::create([
+                'count' => $yesMoney,
+                'payUID' => $agent_id,
+                'depositTime' => time(),
+            ]);
+
+            if(!$deposit_creat_result){
+                throw new Exception('提现失败');
+            }
+
+            Db::commit();
+            return Common::rm(1, '提现成功');
+
+        } catch (Exception $e) {
+            //如获取到异常信息，对所有表的删、改、写操作，都会回滚至操作前的状态：
+            Db::rollback();
+            return Common::rm(-1, $e->getMessage());
+
+        }
+
+    }
+
+}

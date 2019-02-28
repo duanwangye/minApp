@@ -1,0 +1,81 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+namespace app\admin\logic;
+
+use tool\Common;
+use app\core\model\ProductClass as Model;
+class Productclass extends Base
+{
+    //获取分类列表
+    public function getlist() {
+        $page = $this->app['page'];//当前页数
+        $size = $this->app['size'];//每页显示数量
+
+        $class_model = new Model();
+        $list = $class_model
+                    ->limit(($page-1)*$size, $size)
+                    ->select();
+        $count = $class_model->count();   //总条数
+        return Common::rm(1, '操作成功', [
+            'page'=>$page,
+            'count'=>$count,
+            'list'=>$list
+        ]);
+    }
+
+    //新增分类
+    public function add() {
+        $create_params['className'] = $this->app['className'];
+        $create_params['parentID'] = $this->app['parentID'];
+
+        $create_result = Model::create($create_params);
+
+        if ($create_result){
+            return Common::rm(1,'新增成功');
+        }else{
+            return Common::rm(-1,'新增失败');
+        }
+    }
+
+    //修改分类
+    public function modify(){
+        $modify_params['className'] = $this->app['className'];
+        $modify_params['parentID'] = $this->app['parentID'];
+
+        $params_where['classID'] = $this->app['classID'];
+
+        $model = new Model();
+        $save_result = $model->save($modify_params,$params_where);
+
+        if ($save_result){
+            return Common::rm(1,'更新成功');
+        }else{
+            return Common::rm(-1,'更新失败');
+        }
+    }
+
+    /*
+      * 软删除信息
+      * */
+    public function delete() {
+        $delete_result = Model::destroy($this->app['classID']);
+        if ($delete_result){
+            return Common::rm(1,'删除成功');
+        }else{
+            return Common::rm(-1,'删除失败');
+        }
+    }
+
+    public function getinfo(){
+        $info_result = Model::get($this->app['classID']);
+        return Common::rm(1, '操作成功', [
+            'info'=>$info_result
+        ]);
+    }
+}

@@ -1,0 +1,14 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: hlj
+ * Date: 2018/10/29
+ * Time: 11:29
+ */
+return [
+    'product_status_wait' => 0,  //待审核
+    'product_status_reject' => -1,  //驳回
+    'product_status_access' => 1,  //已通过
+    'master_status_forbidden' => 0,  //禁用
+    'master_status_using' => 1,  //启用
+];

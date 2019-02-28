@@ -1,0 +1,39 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Duanwangye
+ * Date: 18/09/21
+ * Company:财联集惠
+ */
+
+namespace app\admin\logic;
+
+use app\core\model\Product as Model;
+use tool\Common;
+class Product extends Base
+{
+
+    //修改产品信息
+   public function modify() {
+       $params_where['productID'] = $this->app['productID'];
+       $product_model = new Model();
+       $product_info = $product_model->where($params_where)->find();
+
+       //商品状态为分享，无法私自上架，需由总平台修改
+       if($product_info['status'] == config('status.product_status_share')){
+           return Common::rm(-1,'分享商品无法上架，请联系管理员');
+       }
+
+       $params['status'] = $this->app['status'];
+       $params['stock'] = $this->app['stock'];  //库存
+       $save_result = $product_model->save($params,$params_where);
+
+       if ($save_result){
+           return Common::rm(1,'修改成功');
+       }else{
+           return Common::rm(-1,'修改失败');
+       }
+   }
+
+
+}

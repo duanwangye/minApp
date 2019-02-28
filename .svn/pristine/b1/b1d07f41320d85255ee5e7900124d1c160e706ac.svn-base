@@ -1,0 +1,12 @@
+<?php
+namespace app\core\model;
+
+use think\Model;
+
+class Profits extends Model
+{
+    protected $autoWriteTimestamp = true;
+    protected $resultSetType = 'collection';
+    protected $createTime = 'addTime';
+    protected $updateTime = false;
+}
